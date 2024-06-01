@@ -1,0 +1,91 @@
+body {
+    font-family: Arial, sans-serif;
+    margin: 20px;
+    background-color: #f4f4f9;
+}
+
+.container-xl{
+    max-width:90vw !important;
+    width:90vw !important;
+}
+h1 {
+    text-align: center;
+    color: #333;
+}
+
+h2, h3 {
+    color: #333;
+}
+
+.singleChart {
+    min-width:500px;
+    width:32%;
+    margin-bottom:2em;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.token-container {
+    text-align: center;
+    margin: 20px 0;
+}
+
+.btn {
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background-color: #0056b3;
+}
+
+.btn-secondary {
+    background-color: #6c757d;
+    color: white;
+    text-decoration:none;
+}
+
+.btn-secondary:hover {
+    background-color: #5a6268;
+}
+
+#copy-success {
+    opacity:0;
+    position:relative;
+    color: green;
+    margin-top: 10px;
+}
+
+.token {
+    /* font-size: 0.5em;  */
+    color: #555; 
+}
+
+.center{
+    text-align:center;
+}
+
+.charts_wrapper{
+    display:flex;
+    flex-direction:row;
+    flex-wrap:wrap;
+    justify-content:space-between;
+}
+
+.truncate {
+    max-width: 50%;
+    white-space: nowrap; 
+    overflow: hidden;
+    text-overflow: ellipsis;
+}

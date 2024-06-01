@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNN RecS</title>
+    <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+</head>
+<body>
+<div class="container-xl mt-4">
+    <div class="row">
+        <div class="col-md-3">
+            <h2>Данные сессии</h2>
+            <div class="mb-1">
+                <form id="noteForm">
+                    <div class="form-group">
+                        <label for="note">Заметки для данного обучения:</label>
+                        <textarea class="form-control" id="note" rows="2">{% if note is not none %}{{ note }}{% endif %}</textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="mb-1">
+                <h4>Токен:</h4>
+                <span class="token">{{ token }}</span>
+            </div>
+            <div class="mb-1">
+                <a href="/" class="btn btn-secondary"><i class="fa fa-home"></i></a>
+                <button class="btn btn-primary" onclick="copyToken()"><i class="fas fa-copy"></i></button>
+                <button class="btn btn-danger" onclick="deleteToken()"><i class="fas fa-trash-alt"></i></button>
+                <p id="copy-success" class="text-success" style="opacity: 0;">Токен скопирован в буфер обмена!</p>
+            </div>
+        </div>
+       <div class="col-md-8">
+            <h2>Уведомления и рекомендации</h2>
+            <div id="recommendations" class="p-3" style="background-color: white; border: 1px solid #dee2e6; border-radius: .25rem;">
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<ul class="nav nav-tabs" id="metricsTabs" role="tablist">
+    <li class="nav-item">
+        <a class="nav-link" id="weights-tab" data-toggle="tab" href="#WeightsAverageChange" role="tab" aria-controls="WeightsAverageChange" aria-selected="false">Изменение абсолютной разности весов</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="activation-tab" data-toggle="tab" href="#ActivationAverageChange" role="tab" aria-controls="ActivationAverageChange" aria-selected="false">Изменение значения функции активации</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="metric3-tab" data-toggle="tab" href="#ActivationAverageValue" role="tab" aria-controls="ActivationAverageValue" aria-selected="false">Среднее значение функции активации</a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" id="metric4-tab" data-toggle="tab" href="#GradientAverageValue" role="tab" aria-controls="GradientAverageValue" aria-selected="false">Среднее значение градиента функции потерь</a>
+    </li>
+</ul>
+<div class="tab-content" id="metricsTabsContent">
+    <div class="tab-pane fade" id="WeightsAverageChange" role="tabpanel" aria-labelledby="weights-tab">
+        <div class="charts_wrapper">
+            {% for layer, data in metrics.WeightsAverageChange.items() %}
+            <div class="singleChart">
+                <h3>Слой {{ layer }}</h3>
+                <canvas id="WeightsAverageChange_{{ layer }}"></canvas>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="tab-pane fade" id="ActivationAverageChange" role="tabpanel" aria-labelledby="activation-tab">
+        <div class="charts_wrapper">
+            {% for layer, data in metrics.ActivationAverageChange.items() %}
+            <div class="singleChart">
+                <h3>Слой {{ layer }}</h3>
+                <canvas id="ActivationAverageChange_{{ layer }}"></canvas>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="tab-pane fade" id="ActivationAverageValue" role="tabpanel" aria-labelledby="metric3-tab">
+        <div class="charts_wrapper">
+            {% for layer, data in metrics.ActivationAverageValue.items() %}
+            <div class="singleChart">
+                <h3>Слой {{ layer }}</h3>
+                <canvas id="ActivationAverageValue_{{ layer }}"></canvas>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="tab-pane fade" id="GradientAverageValue" role="tabpanel" aria-labelledby="metric4-tab">
+        <div class="charts_wrapper">
+            {% for layer, data in metrics.GradientAverageValue.items() %}
+            <div class="singleChart">
+                <h3>Слой {{ layer }}</h3>
+                <canvas id="GradientAverageValue_{{ layer }}"></canvas>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@1.1.0"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.2/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+<script>
+
+
+
+    document.addEventListener('DOMContentLoaded', function() {
+
+
+        const notificationsSet = {
+            'Warning':  new Set(),
+            'Error': new Set(),
+            'Fatal':  new Set()
+        }
+
+        const notificationTypes = {
+            'Warning': 'alert-info',
+            'Error': 'alert-warning',
+            'Fatal': 'alert-danger'
+        };
+
+        function addNotification(type, message) {
+            if (!notificationTypes[type]) {
+                type = 'Warning';
+            }
+
+            if (!notificationsSet[type].has(message)) {
+                notificationsSet[type].add(message);
+            }
+
+            updateNotifications();
+        }
+
+
+        function getEpochNumber(notification) {
+            const match = notification.match(/Эпоха (\d+)/);
+            return match ? parseInt(match[1], 10) : 0;
+        }
+
+        function updateNotifications() {
+            const recommendationsDiv = document.getElementById('recommendations');
+            recommendationsDiv.innerHTML = '';
+
+            const fatalNotifications = Array.from(notificationsSet['Fatal']);
+            const errorNotifications = Array.from(notificationsSet['Error']);
+            const warningNotifications = Array.from(notificationsSet['Warning']);
+
+            if (fatalNotifications.length > 0) {
+
+
+
+                fatalNotifications.sort().sort((a, b) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = `alert ${notificationTypes['Fatal']}`;
+                    alertDiv.textContent = `${message}`;
+                    recommendationsDiv.appendChild(alertDiv);
+                });
+                return;
+            }
+
+            if (errorNotifications.length > 0) {
+                errorNotifications.sort().sort((a, b) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = `alert ${notificationTypes['Error']}`;
+                    alertDiv.textContent = `${message}`;
+                    recommendationsDiv.appendChild(alertDiv);
+                });
+                return;
+            }
+
+            if (warningNotifications.length > 0) {
+                warningNotifications.sort().sort((a, b) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
+                    const alertDiv = document.createElement('div');
+                    alertDiv.className = `alert ${notificationTypes['Warning']}`;
+                    alertDiv.textContent = `${message}`;
+                    recommendationsDiv.appendChild(alertDiv);
+                });
+            }
+        }
+
+
+
+        const noteTextarea = document.getElementById('note');
+
+        const saveNote = () => {
+            const note = noteTextarea.value;
+            fetch(`/add_note/{{ token }}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ note: note })
+            });
+        };
+
+        noteTextarea.addEventListener('input', saveNote);
+        noteTextarea.addEventListener('blur', saveNote);
+
+
+        function movingAverage(data) {
+            windowSize = 5;
+            let result = [];
+            for (let i = 0; i < data.length; i++) {
+                let windowData = data.slice(Math.max(0, i - windowSize + 1), i + 1);
+                let avg = windowData.reduce((sum, val) => sum + val, 0) / windowData.length;
+                result.push(avg);
+            }
+            return result;
+        }
+
+    differenceWeightsPlato = [];
+    differenceWeightsOverfitting= [];
+
+function checkDifference(array, layer, value, threshold = 0.05) {
+    array[layer-1] = [];
+    for (let i = 1; i < value.length; i++) {
+        let previousValue = value[i - 1];
+        let currentValue = value[i];
+        let difference = Math.abs(currentValue - previousValue);
+
+        if (difference / previousValue < threshold) {
+            array[layer-1].push(i + 1);
+        }
+    }
+}
+
+function findFirst(arrays) {
+    return Math.max(...arrays.map(arr => arr[0]));
+}
+
+
+    function checkWeightsAverageChange(){
+
+         const plato = findFirst(differenceWeightsPlato);
+         const overfitting = findFirst(differenceWeightsOverfitting);
+
+        if (isFinite(plato)) {
+            addNotification("Warning", `Эпоха ${plato+1} :
+            Возможен выход на плато обучения! Рассмотрите остановку обучения и присмотритесь к функциям активации`)
+        }
+
+        if (isFinite(overfitting)) {
+            addNotification("Error", `Эпоха ${overfitting+1} :
+            Риск переобучения! Попробуйте остановить обучение и присмотритесь к архитектуре сети`)
+        }
+    }
+
+    function checkGradientZero(values, layer){
+
+    for (let i = 1; i < values.length; i++) {
+        if(values[i] == 0){
+            addNotification("Fatal", `Эпоха ${i} - Слой ${layer} :
+            Затухание градиента! Попробуйте изменить learning rate и проанализируйте архитектуру сети`)
+        }
+    }
+
+
+    }
+
+
+    function updateCharts() {
+        $.ajax({
+            url: '/update_data/{{ token }}',
+            type: 'GET',
+            success: function(data) {
+
+                Object.entries(data.WeightsAverageChange).forEach(([layer, data]) => {
+
+                    let updateLabels = data.map(d => d.epoch);
+                    let updateData = data.map(d => d.value);
+
+                    if (!chartWeightsAverageChange[layer]) {
+                        location.reload();
+                    } else {
+                        const smoothed = movingAverage(updateData);
+                        chartWeightsAverageChange[layer].data.labels = updateLabels;
+                        chartWeightsAverageChange[layer].data.datasets[0].data = updateData;
+                        chartWeightsAverageChange[layer].data.datasets[1].data = smoothed;
+                        chartWeightsAverageChange[layer].update();
+
+                        checkDifference(differenceWeightsPlato, layer, smoothed, 0.05);
+                        checkDifference(differenceWeightsOverfitting, layer, smoothed, 0.02);
+                    }
+                });
+
+
+                checkWeightsAverageChange();
+
+                Object.entries(data.ActivationAverageChange).forEach(([layer, data]) => {
+
+                    let updateLabels = data.map(d => d.epoch);
+                    let updateData = data.map(d => d.value);
+
+                    if (!chartActivationAverageChange[layer]) {
+                        location.reload();
+                    } else {
+                        chartActivationAverageChange[layer].data.labels = updateLabels;
+                        chartActivationAverageChange[layer].data.datasets[0].data = updateData;
+                        chartActivationAverageChange[layer].update();
+                    }
+                });
+
+
+                Object.entries(data.ActivationAverageValue).forEach(([layer, data]) => {
+
+                    let updateLabels = data.map(d => d.epoch);
+                    let updateData = data.map(d => d.value);
+
+                    if (!chartActivationAverageValue[layer]) {
+                        location.reload();
+                    } else {
+                        chartActivationAverageValue[layer].data.labels = updateLabels;
+                        chartActivationAverageValue[layer].data.datasets[0].data = updateData;
+                        chartActivationAverageValue[layer].update();
+                    }
+                });
+
+
+
+                Object.entries(data.GradientAverageValue).forEach(([layer, data]) => {
+
+                    let updateLabels = data.map(d => d.epoch);
+                    let updateData = data.map(d => d.value);
+
+                    if (!chartGradientAverageValue[layer]) {
+                        location.reload();
+                    } else {
+                        chartGradientAverageValue[layer].data.labels = updateLabels;
+                        chartGradientAverageValue[layer].data.datasets[0].data = updateData;
+                        chartGradientAverageValue[layer].update();
+
+                        checkGradientZero(updateData, layer);
+                    }
+                });
+
+            },
+            error: function(xhr, status, error) {
+                console.error('Ошибка при получении данных с сервера:', error);
+            }
+        });
+    }
+
+        window.charts = {};
+
+        $('.nav-link').on('click', function (e) {
+            var tabId = $(this).attr('href');
+            var tabName = tabId.replace('#', '');
+            window.history.replaceState(null, null, window.location.pathname + '#' + tabName);
+        });
+
+        const hash = window.location.hash;
+        if (hash) {
+            const tabElement = document.querySelector(`a[href="${hash}"]`);
+            if (tabElement) {
+                const tab = new bootstrap.Tab(tabElement);
+                tab.show();
+            }
+        } else {
+            const firstTabElement = document.querySelector('#metricsTabs .nav-link:first-child');
+            if (firstTabElement) {
+                const tab = new bootstrap.Tab(firstTabElement);
+                tab.show();
+            }
+        }
+
+        const tabElements = document.querySelectorAll('#metricsTabs .nav-link');
+        tabElements.forEach(tabElement => {
+            tabElement.addEventListener('shown.bs.tab', function(event) {
+                history.pushState(null, null, event.target.hash);
+            });
+        });
+        setInterval(updateCharts, 5000);
+
+        chartWeightsAverageChange = {}
+        {% for layer, data in metrics.WeightsAverageChange.items() %}
+        const ctxWeightsAverageChange{{ layer }} = document.getElementById('WeightsAverageChange_{{ layer }}').getContext('2d');
+        const dataWeightsAverageChange{{ layer }} = {{ data | tojson }};
+        const labelsWeightsAverageChange{{ layer }} = dataWeightsAverageChange{{ layer }}.map(d => d.epoch);
+        const valuesWeightsAverageChange{{ layer }} = dataWeightsAverageChange{{ layer }}.map(d => d.value);
+        const smoothedValuesWeightsAverageChange{{ layer }} = movingAverage(valuesWeightsAverageChange{{ layer }});
+
+        checkDifference(differenceWeightsPlato, {{layer}}, smoothedValuesWeightsAverageChange{{ layer }}, 0.05);
+        checkDifference(differenceWeightsOverfitting, {{layer}}, smoothedValuesWeightsAverageChange{{ layer }}, 0.02);
+
+
+        chartWeightsAverageChange[{{layer}}] = new Chart(ctxWeightsAverageChange{{ layer }}, {
+            type: 'line',
+                data: {
+                labels: labelsWeightsAverageChange{{ layer }},
+                datasets: [{
+                    label: 'Изменение абсолютной разности весов',
+                    data: valuesWeightsAverageChange{{ layer }},
+                borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderWidth: 1
+            }, {
+                label: 'Скользящее среднее',
+                data: smoothedValuesWeightsAverageChange{{ layer }},
+                borderColor: 'rgba(75, 192, 192, 1)',
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderWidth: 1
+            }]
+            },
+            options: {
+                animation: false,
+                    scales: {
+                    x: {
+                        title: {
+                            display: true,
+                                text: 'Эпоха'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                                text: 'Значение метрики'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                    yMin: 0,
+                                    yMax: 0,
+                                    borderColor: 'red',
+                                    borderDash: [5, 5],
+                                    borderWidth: 2,
+                                    label: {
+                                    enabled: true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endfor %}
+        checkWeightsAverageChange();
+
+        chartActivationAverageChange = {}
+        {% for layer, data in metrics.ActivationAverageChange.items() %}
+        const ctxActivationAverageChange{{ layer }} = document.getElementById('ActivationAverageChange_{{ layer }}').getContext('2d');
+        const dataActivationAverageChange{{ layer }} = {{ data | tojson }};
+        const labelsActivationAverageChange{{ layer }} = dataActivationAverageChange{{ layer }}.map(d => d.epoch);
+        const valuesActivationAverageChange{{ layer }} = dataActivationAverageChange{{ layer }}.map(d => d.value);
+        chartActivationAverageChange[{{ layer }}] = new Chart(ctxActivationAverageChange{{ layer }}, {
+            type: 'line',
+                data: {
+                labels: labelsActivationAverageChange{{ layer }},
+                datasets: [{
+                    label: 'Изменение значений функции активации',
+                    data: valuesActivationAverageChange{{ layer }},
+                borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderWidth: 1
+            }]
+            },
+            options: {
+                animation: false,
+                    scales: {
+                    x: {
+                        title: {
+                            display: true,
+                                text: 'Эпоха'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                                text: 'Значение метрики'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                    yMin: 0,
+                                    yMax: 0,
+                                    borderColor: 'red',
+                                    borderDash: [5, 5],
+                                    borderWidth: 2,
+                                    label: {
+                                    enabled: true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endfor %}
+
+        chartActivationAverageValue = {}
+        {% for layer, data in metrics.ActivationAverageValue.items() %}
+        const ctxActivationAverageValue{{ layer }} = document.getElementById('ActivationAverageValue_{{ layer }}').getContext('2d');
+        const dataActivationAverageValue{{ layer }} = {{ data | tojson }};
+        const labelsActivationAverageValue{{ layer }} = dataActivationAverageValue{{ layer }}.map(d => d.epoch);
+        const valuesActivationAverageValue{{ layer }} = dataActivationAverageValue{{ layer }}.map(d => d.value);
+
+        chartActivationAverageValue[{{ layer }}] = new Chart(ctxActivationAverageValue{{ layer }}, {
+            type: 'line',
+                data: {
+                labels: labelsActivationAverageValue{{ layer }},
+                datasets: [{
+                    label: 'Среднее значение функции активации',
+                    data: valuesActivationAverageValue{{ layer }},
+                borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderWidth: 1
+            }]
+            },
+            options: {
+                animation: false,
+                    scales: {
+                    x: {
+                        title: {
+                            display: true,
+                                text: 'Эпоха'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                                text: 'Значение метрики'
+                        },
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+        {% endfor %}
+
+
+        chartGradientAverageValue = {}
+        {% for layer, data in metrics.GradientAverageValue.items() %}
+        const ctxGradientAverageValue{{ layer }} = document.getElementById('GradientAverageValue_{{ layer }}').getContext('2d');
+        const dataGradientAverageValue{{ layer }} = {{ data | tojson }};
+        const labelsGradientAverageValue{{ layer }} = dataGradientAverageValue{{ layer }}.map(d => d.epoch);
+        const valuesGradientAverageValue{{ layer }} = dataGradientAverageValue{{ layer }}.map(d => d.value);
+        checkGradientZero(valuesGradientAverageValue{{ layer }}, {{ layer }});
+        chartGradientAverageValue[{{ layer }}] = new Chart(ctxGradientAverageValue{{ layer }}, {
+            type: 'line',
+                data: {
+                labels: labelsGradientAverageValue{{ layer }},
+                datasets: [{
+                    label: 'Среднее значение градиента функции потерь',
+                    data: valuesGradientAverageValue{{ layer }},
+                borderColor: 'rgba(153, 102, 255, 1)',
+                    backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                    borderWidth: 1
+            }]
+            },
+            options: {
+                animation: false,
+                    scales: {
+                    x: {
+                        title: {
+                            display: true,
+                                text: 'Эпоха'
+                        }
+                    },
+                    y: {
+                        title: {
+                            display: true,
+                                text: 'Значение метрики'
+                        },
+                        beginAtZero: true
+                    }
+                },
+                plugins: {
+                    annotation: {
+                        annotations: {
+                            line1: {
+                                type: 'line',
+                                    yMin: 0,
+                                    yMax: 0,
+                                    borderColor: 'red',
+                                    borderDash: [5, 5],
+                                    borderWidth: 2,
+                                    label: {
+                                    enabled: true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        });
+        {% endfor %}
+    });
+
+    function deleteToken() {
+        fetch(`/delete_token`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ token:'{{ token }}' })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+            window.location.href = '/';
+            }
+        });
+    }
+
+    function copyToken() {
+        const token = "{{ token }}";
+        navigator.clipboard.writeText(token).then(function() {
+            document.getElementById('copy-success').style.opacity = '1';
+            setTimeout(function() {
+                document.getElementById('copy-success').style.opacity = '0';
+            }, 2000);
+        }, function(err) {
+            console.error('Ошибка копирования токена: ', err);
+        });
+    }
+
+
+</script>
+</body>
+</html>

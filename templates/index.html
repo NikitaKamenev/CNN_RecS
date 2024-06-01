@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CNN RecS</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css">
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+</head>
+<body>
+<div class="container">
+    <h1 class="">Рекомендательный сервис <br>для сверточных нейронных сетей</h1>
+
+    <div class="mt-4">
+        <h2>Список токенов</h2>
+
+        <form method="POST" action="">
+            <button type="submit" class="btn btn-primary btn-lg mb-4">Сгенерировать новый токен</button>
+        </form>
+
+        <p>Ниже выведены активные токены, по которым были получены и сохранены данные об обучении</p>
+        <ul class="list-group">
+            {% for token in tokens %}
+            <li class="list-group-item d-flex justify-content-between align-items-center">
+                <a href="{{ url_for('metrics', token=token.token) }}">{{ token.token }}</a>
+                <span class="badge badge-primary badge-pill truncate">
+                        {% if token.note %}{{ token.note }}{% else %}No note{% endif %}
+                    </span>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
+<script src="https://code.jquery.com/jquery-3.2.1.slim.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.11.0/umd/popper.min.js"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
+</body>
+</html>
