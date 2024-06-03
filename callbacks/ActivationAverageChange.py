@@ -6,7 +6,7 @@ import requests
 
 
 class ActivationAverageChange(tf.keras.callbacks.Callback):
-    def __init__(self, test_data, ratio=1.0, clear=False, token=None):
+    def __init__(self, test_data, ratio=1.0, url=None, token=None, clear=False):
         super(ActivationAverageChange, self).__init__()
         self.epochs = []
         self.previous_epoch_activation = []
@@ -17,6 +17,7 @@ class ActivationAverageChange(tf.keras.callbacks.Callback):
         self.test_data = test_data[indices[:val_size]]
         self.layer_activation = []
         self.layer_last_activation = []
+        self.url = url
         self.token = token
 
     def on_epoch_end(self, epoch, logs=None):
@@ -31,7 +32,7 @@ class ActivationAverageChange(tf.keras.callbacks.Callback):
                 self.layer_activation.insert(i, [])
                 self.layer_last_activation.insert(i, activation)
                 continue
-            elif self.token is not None:
+            elif self.url is not None:
                 self.update_metrics(curr_epoch, i + 1, np.mean(np.abs(self.layer_last_activation[i] - activation)))
             else:
                 self.layer_activation[i].append(np.mean(np.abs(self.layer_last_activation[i] - activation)))
@@ -39,7 +40,7 @@ class ActivationAverageChange(tf.keras.callbacks.Callback):
 
         if epoch > 0:
             self.epochs.append(curr_epoch)
-            if self.token is None:
+            if self.url is None:
                 self.update_plots()
 
     def update_plots(self):
@@ -65,7 +66,7 @@ class ActivationAverageChange(tf.keras.callbacks.Callback):
         plt.show()
 
     def update_metrics(self, epoch, layer, value):
-        url = f'http://localhost:5000/ActivationAverageChange/{self.token}'
+        url = f'{self.url}/{self.token}'
         data = {
             'epoch': epoch,
             'layer': layer,

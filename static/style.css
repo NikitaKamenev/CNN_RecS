@@ -18,8 +18,9 @@ h2, h3 {
 }
 
 .singleChart {
-    min-width:500px;
-    width:32%;
+    width:max(700px, 32%);
+    max-width:49%;
+    flex-grow: 1;
     margin-bottom:2em;
     padding: 20px;
     background-color: #fff;
@@ -81,6 +82,7 @@ h2, h3 {
     flex-direction:row;
     flex-wrap:wrap;
     justify-content:space-between;
+    gap:1%;
 }
 
 .truncate {

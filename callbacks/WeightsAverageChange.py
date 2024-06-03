@@ -4,13 +4,15 @@ import matplotlib.pyplot as plt
 from IPython.display import clear_output, display
 import requests
 
+
 class WeightsAverageChange(tf.keras.callbacks.Callback):
-    def __init__(self, clear=False, token=None):
+    def __init__(self, url=None, token=None, clear=False):
         super(WeightsAverageChange, self).__init__()
         self.epochs = []
         self.previous_epoch_weights = []
         self.weights = []
         self.clear = clear
+        self.url = url
         self.token = token
 
     def on_epoch_end(self, epoch, logs=None):
@@ -26,16 +28,14 @@ class WeightsAverageChange(tf.keras.callbacks.Callback):
                 continue
             result = [tf.abs(w1 - w2) for w1, w2 in zip(weights_arrays, self.previous_epoch_weights[i])]
             mean = tf.reduce_mean(tf.concat([tf.reshape(res, [-1]) for res in result], axis=0))
-            if self.token is not None:
+            if self.url is not None:
                 self.update_metrics(curr_epoch, i + 1, mean)
             else:
                 self.weights[i].append(mean)
             self.previous_epoch_weights[i] = weights_arrays
-
         if epoch == 0:
             return
-
-        if self.token is None:
+        if self.url is None:
             self.epochs.append(curr_epoch)
             self.update_plots()
 
@@ -62,7 +62,7 @@ class WeightsAverageChange(tf.keras.callbacks.Callback):
         plt.show()
 
     def update_metrics(self, epoch, layer, value):
-        url = f'http://localhost:5000/WeightsAverageChange/{self.token}'
+        url = f'{self.url}/{self.token}'
         data = {
             'epoch': epoch,
             'layer': layer,
@@ -71,3 +71,6 @@ class WeightsAverageChange(tf.keras.callbacks.Callback):
         response = requests.post(url, json=data)
         if response.status_code != 201:
             print(f'Failed to send data for WeightsAverageChange at epoch {epoch}')
+
+
+

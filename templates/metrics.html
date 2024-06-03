@@ -150,29 +150,27 @@
 
             if (fatalNotifications.length > 0) {
 
-
-
-                fatalNotifications.sort().sort((a, b) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
+                fatalNotifications.sort().sort((b, a) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
                     const alertDiv = document.createElement('div');
                     alertDiv.className = `alert ${notificationTypes['Fatal']}`;
                     alertDiv.textContent = `${message}`;
                     recommendationsDiv.appendChild(alertDiv);
                 });
-                return;
+                // return;
             }
 
             if (errorNotifications.length > 0) {
-                errorNotifications.sort().sort((a, b) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
+                errorNotifications.sort().sort((b, a) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
                     const alertDiv = document.createElement('div');
                     alertDiv.className = `alert ${notificationTypes['Error']}`;
                     alertDiv.textContent = `${message}`;
                     recommendationsDiv.appendChild(alertDiv);
                 });
-                return;
+                // return;
             }
 
             if (warningNotifications.length > 0) {
-                warningNotifications.sort().sort((a, b) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
+                warningNotifications.sort().sort((b, a) => getEpochNumber(a) - getEpochNumber(b)).forEach(message => {
                     const alertDiv = document.createElement('div');
                     alertDiv.className = `alert ${notificationTypes['Warning']}`;
                     alertDiv.textContent = `${message}`;
@@ -200,8 +198,8 @@
         noteTextarea.addEventListener('blur', saveNote);
 
 
-        function movingAverage(data) {
-            windowSize = 5;
+        function movingAverage(data, size=5) {
+            windowSize = size;
             let result = [];
             for (let i = 0; i < data.length; i++) {
                 let windowData = data.slice(Math.max(0, i - windowSize + 1), i + 1);
@@ -239,21 +237,23 @@ function findFirst(arrays) {
 
         if (isFinite(plato)) {
             addNotification("Warning", `Эпоха ${plato+1} :
-            Возможен выход на плато обучения! Рассмотрите остановку обучения и присмотритесь к функциям активации`)
+            Возможен выход на плато обучения! Рассмотрите раннюю остановку обучения и присмотритесь к функциям активации и функции потерь`)
         }
 
         if (isFinite(overfitting)) {
             addNotification("Error", `Эпоха ${overfitting+1} :
-            Риск переобучения! Попробуйте остановить обучение и присмотритесь к архитектуре сети`)
+            Риск переобучения! Рекомендуется остановить обучение и если модель не достигла необходиомй точности проанализировать архитектуру сети`)
         }
     }
 
     function checkGradientZero(values, layer){
 
-    for (let i = 1; i < values.length; i++) {
-        if(values[i] == 0){
+    smoothedGradient = movingAverage(values, 2);
+
+    for (let i = 1; i < smoothedGradient.length; i++) {
+        if(smoothedGradient[i] == 0){
             addNotification("Fatal", `Эпоха ${i} - Слой ${layer} :
-            Затухание градиента! Попробуйте изменить learning rate и проанализируйте архитектуру сети`)
+            Затухание градиента! Попробуйте изменить learning rate, обратите внимание на функции активации, функцию потерь и оптимизатор`)
         }
     }
 

@@ -6,7 +6,7 @@ import requests
 
 
 class ActivationAverageValue(tf.keras.callbacks.Callback):
-    def __init__(self, test_data, ratio=1.0, clear=False, token=None):
+    def __init__(self, test_data, ratio=1.0, url=None, token=None, clear=False):
         super(ActivationAverageValue, self).__init__()
         self.epochs = []
         self.previous_epoch_activation = []
@@ -16,6 +16,7 @@ class ActivationAverageValue(tf.keras.callbacks.Callback):
         np.random.shuffle(indices)
         self.test_data = test_data[indices[:val_size]]
         self.layer_activation = []
+        self.url = url
         self.token = token
 
     def on_epoch_end(self, epoch, logs=None):
@@ -28,14 +29,14 @@ class ActivationAverageValue(tf.keras.callbacks.Callback):
         self.epochs.append(curr_epoch)
         for i, activation in enumerate(activations):
             layer_mean = np.mean(activation)
-            if self.token is not None:
+            if self.url is not None:
                 self.update_metrics(curr_epoch, i + 1, layer_mean)
             elif epoch == 0:
                 self.layer_activation.insert(i, [layer_mean])
             else:
                 self.layer_activation[i].append(layer_mean)
 
-        if self.token is None:
+        if self.url is None:
             self.update_plots()
 
     def update_plots(self):
@@ -61,7 +62,7 @@ class ActivationAverageValue(tf.keras.callbacks.Callback):
         plt.show()
 
     def update_metrics(self, epoch, layer, value):
-        url = f'http://localhost:5000/ActivationAverageValue/{self.token}'
+        url = f'{self.url}/{self.token}'
         data = {
             'epoch': epoch,
             'layer': layer,

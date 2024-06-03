@@ -4,8 +4,9 @@ import matplotlib.pyplot as plt
 from IPython.display import clear_output, display
 import requests
 
+
 class GradientAverageValue(tf.keras.callbacks.Callback):
-    def __init__(self, test_data, test_label, ratio=1.0, clear=False, token=None):
+    def __init__(self, test_data, test_label, ratio=1.0, url=None, token=None, clear=False):
         super(GradientAverageValue, self).__init__()
         self.clear = clear
         val_size = max(1, int(len(test_data) * ratio))
@@ -15,6 +16,7 @@ class GradientAverageValue(tf.keras.callbacks.Callback):
         self.test_label = test_label[indices[:val_size]]
         self.epochs = []
         self.gradients_means = []
+        self.url = url
         self.token = token
 
     def on_epoch_end(self, epoch, logs=None):
@@ -28,14 +30,14 @@ class GradientAverageValue(tf.keras.callbacks.Callback):
 
         for i, grad in enumerate(gradients):
             mean_grad = tf.reduce_mean(grad).numpy()
-            if self.token is not None:
+            if self.url is not None:
                 self.update_metrics(curr_epoch, i + 1, mean_grad)
             elif epoch == 0:
                 self.gradients_means.insert(i, [mean_grad])
             else:
                 self.gradients_means[i].append(mean_grad)
 
-        if self.token is None:
+        if self.url is None:
             self.plot_gradients()
 
     def plot_gradients(self):
@@ -58,7 +60,7 @@ class GradientAverageValue(tf.keras.callbacks.Callback):
         plt.show()
 
     def update_metrics(self, epoch, layer, value):
-        url = f'http://localhost:5000/GradientAverageValue/{self.token}'
+        url = f'{self.url}/{self.token}'
         data = {
             'epoch': epoch,
             'layer': layer,

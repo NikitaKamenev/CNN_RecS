@@ -12,11 +12,14 @@
 <p>Для того чтобы каждую эпоху передавать данные в сервис и обновлять графики, необходимо вставить токен в параметры Callbacks для каждой метрики при обучении вашей нейронной сети. Пример использования с кастомными Callbacks:</p>
 <pre>
 <code>token = 'YOUR-TOKEN'
+base_url = 'http://localhost:5000/'
 my_callbacks = [
-    WeightsAverageChange(token=token),
-    ActivationAverageChange(test_data=test_images, ratio=0.1, token=token)
-    ActivationAverageValue(test_data=test_images, ratio=0.1, token=token)
-    GradientAverageValue(test_data=test_images, test_label=test_labels, ratio=0.1, token=token) 
+    TimeCallback(),
+    # PlotCallback(),
+    WeightsAverageChange(url=f"{base_url}/WeightsAverageChange", token=token),
+    ActivationAverageChange(test_data=test_images, ratio=0.1, url=f"{base_url}/ActivationAverageChange", token=token),
+    ActivationAverageValue(test_data=test_images, ratio=0.1,  url=f"{base_url}/ActivationAverageValue", token=token),
+    GradientAverageValue(test_data=test_images, test_label=test_labels, ratio=0.1, url=f"{base_url}/GradientAverageValue", token=token)
 ]
 model.fit(train_data, train_labels, epochs=10, callbacks=[my_callbacks])</code>
 </pre>
