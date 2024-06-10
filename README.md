@@ -15,7 +15,6 @@
 base_url = 'http://localhost:5000/'
 my_callbacks = [
     TimeCallback(),
-    # PlotCallback(),
     WeightsAverageChange(url=f"{base_url}/WeightsAverageChange", token=token),
     ActivationAverageChange(test_data=test_images, ratio=0.1, url=f"{base_url}/ActivationAverageChange", token=token),
     ActivationAverageValue(test_data=test_images, ratio=0.1,  url=f"{base_url}/ActivationAverageValue", token=token),
