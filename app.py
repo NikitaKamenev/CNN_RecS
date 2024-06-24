@@ -52,6 +52,7 @@ def home():
         flash('Token generated!', 'success')
         return redirect(url_for('metrics', token=new_token.token))
     tokens = Token.query.all()
+    tokens.reverse()
     tokens_info = [{'token': token.token, 'note': token.note} for token in tokens]
     return render_template('index.html', tokens=tokens_info)
 
@@ -64,7 +65,7 @@ def add_note(token):
         db.session.commit()
         return jsonify({"success": True})
     else:
-        return jsonify({"success": False, "error": "Token not found"}), 404
+        return jsonify({"success": False, "error": "Token not found"}), 400
 
 
 
@@ -135,7 +136,7 @@ def metrics(token):
             return redirect(url_for('home'))
         return render_template('metrics.html', token=token, metrics=output, note=token_entry.note)
     else:
-        return jsonify({'error': 'Invalid token'}), 404
+        return jsonify({'error': 'Invalid token'}), 400
         
 @app.route('/delete_token', methods=['POST'])
 def delete_token():
@@ -148,14 +149,14 @@ def delete_token():
         db.session.commit()
         return jsonify({"success": True, "message": "Token deleted successfully"}), 200
     else:
-        return jsonify({"success": False, "error": "Token not found"}), 404
+        return jsonify({"success": False, "error": "Token not found"}), 400
         
 
 @app.route('/update_data/<token>', methods=['GET'])
 def update_data(token):
     output = get_data(token)
     if output is None:
-        return jsonify({'error': 'Invalid token'}), 404
+        return jsonify({'error': 'Invalid token'}), 400
     return jsonify(output)
 
 @app.route('/WeightsAverageChange/<token>', methods=['POST'])
@@ -166,7 +167,9 @@ def add_weights_average_change(token):
         layer = request.json.get('layer')
         value = request.json.get('value')
         
-        WeightsAverageChange.query.filter(WeightsAverageChange.token_id == token_entry.id, WeightsAverageChange.layer == layer,  WeightsAverageChange.epoch >= epoch).delete()
+        WeightsAverageChange.query.filter(WeightsAverageChange.token_id == token_entry.id, 
+                                          WeightsAverageChange.layer == layer,  
+                                          WeightsAverageChange.epoch >= epoch).delete()
         db.session.commit()
         
         new_record = WeightsAverageChange(token_id=token_entry.id, epoch=epoch, layer=layer, value=value)
@@ -174,7 +177,7 @@ def add_weights_average_change(token):
         db.session.commit()
         return jsonify({'message': 'Weights average change added successfully!'}), 201
     else:
-        return jsonify({'error': 'Invalid token'}), 404
+        return jsonify({'error': 'Invalid token'}), 400
 
 @app.route('/ActivationAverageChange/<token>', methods=['POST'])
 def add_activation_average_change(token):
@@ -192,7 +195,7 @@ def add_activation_average_change(token):
         db.session.commit()
         return jsonify({'message': 'Activation average change added successfully!'}), 201
     else:
-        return jsonify({'error': 'Invalid token'}), 404
+        return jsonify({'error': 'Invalid token'}), 400
 
 @app.route('/ActivationAverageValue/<token>', methods=['POST'])
 def add_activation_average_value(token):
@@ -210,7 +213,7 @@ def add_activation_average_value(token):
         db.session.commit()
         return jsonify({'message': 'Activation average value added successfully!'}), 201
     else:
-        return jsonify({'error': 'Invalid token'}), 404
+        return jsonify({'error': 'Invalid token'}), 400
 
 @app.route('/GradientAverageValue/<token>', methods=['POST'])
 def add_gradient_average_value(token):
@@ -228,12 +231,11 @@ def add_gradient_average_value(token):
         db.session.commit()
         return jsonify({'message': 'Gradient average value added successfully!'}), 201
     else:
-        return jsonify({'error': 'Invalid token'}), 404
+        return jsonify({'error': 'Invalid token'}), 400
 
 
 if __name__ == '__main__':
     with app.app_context():
-        # db.drop_all()
         db.create_all()
     app.run(debug=True)
 
